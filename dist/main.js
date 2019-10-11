@@ -45,7 +45,7 @@ function (_Component) {
 
     _this = _possibleConstructorReturn(this, _getPrototypeOf(StepZilla).call(this, props));
     _this.state = {
-      compState: _this.props.startAtStep,
+      currentStep: _this.props.startAtStep,
       navState: _this.getNavStates(_this.props.startAtStep, _this.props.steps.length)
     };
     _this.hidden = {
@@ -54,15 +54,15 @@ function (_Component) {
 
     _this.nextTextOnFinalActionStep = _this.props.nextTextOnFinalActionStep ? _this.props.nextTextOnFinalActionStep : _this.props.nextButtonText;
 
-    _this.applyValidationFlagsToSteps();
+    _this.initializeValidationFlags();
 
     return _this;
   } // extend the "steps" array with flags to indicate if they have been validated
 
 
   _createClass(StepZilla, [{
-    key: "applyValidationFlagsToSteps",
-    value: function applyValidationFlagsToSteps() {
+    key: "initializeValidationFlags",
+    value: function initializeValidationFlags() {
       var _this2 = this;
 
       this.props.steps.map(function (i, idx) {
@@ -118,7 +118,7 @@ function (_Component) {
 
       if (currentStep >= this.props.steps.length - 1) {
         showNextBtn = false;
-        showPreviousBtn = this.props.prevBtnOnLastStep === false ? false : true;
+        showPreviousBtn = this.props.prevBtnOnLastStep === undefined ? true : this.props.prevBtnOnLastStep;
       }
 
       return {
@@ -175,7 +175,7 @@ function (_Component) {
       } else {
         // the main navigation step ui is invoking a jump between steps
         // if stepsNavigation is turned off or user clicked on existing step again (on step 2 and clicked on 2 again) then ignore
-        if (!this.props.stepsNavigation || evt.target.value === this.state.compState) {
+        if (!this.props.stepsNavigation || evt.target.value === this.state.currentStep) {
           evt.preventDefault();
           evt.stopPropagation();
           return;
@@ -183,7 +183,7 @@ function (_Component) {
 
 
         evt.persist();
-        var movingBack = evt.target.value < this.state.compState; // are we trying to move back or front?
+        var movingBack = evt.target.value < this.state.currentStep; // are we trying to move back or front?
 
         var passThroughStepsNotValid = false; // if we are jumping forward, only allow that if inbetween steps are all validated. This flag informs the logic...
 
@@ -204,7 +204,7 @@ function (_Component) {
               // looks like we are moving forward, 'reduce' a new array of step>validated values we need to check and
               // ... 'some' that to get a decision on if we should allow moving forward
               passThroughStepsNotValid = _this3.props.steps.reduce(function (a, c, i) {
-                if (i >= _this3.state.compState && i < evt.target.value) {
+                if (i >= _this3.state.currentStep && i < evt.target.value) {
                   a.push(c.validated);
                 }
 
@@ -222,7 +222,7 @@ function (_Component) {
         }).then(function () {
           // this is like finally(), executes if error no no error
           if (proceed && !passThroughStepsNotValid) {
-            if (evt.target.value === _this3.props.steps.length - 1 && _this3.state.compState === _this3.props.steps.length - 1) {
+            if (evt.target.value === _this3.props.steps.length - 1 && _this3.state.currentStep === _this3.props.steps.length - 1) {
               _this3.setNavState(_this3.props.steps.length);
             } else {
               _this3.setNavState(evt.target.value);
@@ -253,7 +253,7 @@ function (_Component) {
         _this4.updateStepValidationFlag(proceed);
 
         if (proceed) {
-          _this4.setNavState(_this4.state.compState + 1);
+          _this4.setNavState(_this4.state.currentStep + 1);
         }
       }).catch(function (e) {
         if (e) {
@@ -274,8 +274,8 @@ function (_Component) {
   }, {
     key: "previous",
     value: function previous() {
-      if (this.state.compState > 0) {
-        this.setNavState(this.state.compState - 1);
+      if (this.state.currentStep > 0) {
+        this.setNavState(this.state.currentStep - 1);
       }
     } // update step's validation flag
 
@@ -283,7 +283,7 @@ function (_Component) {
     key: "updateStepValidationFlag",
     value: function updateStepValidationFlag() {
       var val = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
-      this.props.steps[this.state.compState].validated = val; // note: if a step component returns 'underfined' then treat as "true".
+      this.props.steps[this.state.currentStep].validated = val; // note: if a step component returns 'underfined' then treat as "true".
     } // are we allowed to move forward? via the next button or via jumpToStep?
 
   }, {
@@ -298,7 +298,7 @@ function (_Component) {
         if (skipValidationExecution) {
           // we are moving backwards in steps, in this case dont validate as it means the user is not commiting to "save"
           proceed = true;
-        } else if (this.isStepAtIndexHOCValidationBased(this.state.compState)) {
+        } else if (this.isStepAtIndexHOCValidationBased(this.state.currentStep)) {
           // the user is using a higer order component (HOC) for validation (e.g react-validation-mixin), this wraps the StepZilla steps as a HOC,
           // so use hocValidationAppliedTo to determine if this step needs the aync validation as per react-validation-mixin interface
           proceed = this.refs.activeComponent.refs.component.isValidated();
@@ -361,7 +361,7 @@ function (_Component) {
 
       var props = this.props;
 
-      var _this$getPrevNextBtnL = this.getPrevNextBtnLayout(this.state.compState),
+      var _this$getPrevNextBtnL = this.getPrevNextBtnLayout(this.state.currentStep),
           nextStepText = _this$getPrevNextBtnL.nextStepText,
           showNextBtn = _this$getPrevNextBtnL.showNextBtn,
           showPreviousBtn = _this$getPrevNextBtnL.showPreviousBtn; // clone the step component dynamically and tag it as activeComponent so we can validate it on next. also bind the jumpToStep piping method
@@ -372,10 +372,10 @@ function (_Component) {
           _this6.jumpToStep(t);
         }
       };
-      var componentPointer = this.props.steps[this.state.compState].component; // can only update refs if its a regular React component (not a pure component), so lets check that
+      var componentPointer = this.props.steps[this.state.currentStep].component; // can only update refs if its a regular React component (not a pure component), so lets check that
 
       if (componentPointer instanceof _react.Component || componentPointer.type && componentPointer.type.prototype instanceof _react.Component) {
-        // unit test deteceted that instanceof Component can be in either of these locations so test both (not sure why this is the case)
+        // unit test detected that instanceof Component can be in either of these locations so test both (not sure why this is the case)
         cloneExtensions.ref = 'activeComponent';
       }
 

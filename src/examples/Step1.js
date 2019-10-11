@@ -17,13 +17,14 @@ export default class Step1 extends Component {
   // isValidated() {}
 
   render() {
+    console.log("step 1");
     return (
       <div className="step step1">
         <div className="row">
           <form id="Form" className="form-horizontal">
             <div className="form-group">
               <label className="col-md-12 control-label">
-                <h1>Step 1: Welcome to the official React StepZilla Example</h1>
+                <h1>Step 1: Wilcommen to the official React StepZilla Example</h1>
                 <h3>Source, Installation Instructions and Docs can be found here: <a href="https://github.com/newbreedofgeek/react-stepzilla" target="_blank">https://github.com/newbreedofgeek/react-stepzilla</a></h3>
               </label>
               <div className="row">

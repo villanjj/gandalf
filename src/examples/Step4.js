@@ -60,6 +60,7 @@ class Step4 extends Component {
   };
 
   render() {
+    console.log("step 4");
     // explicit class assigning based on validation
     let notValidClasses = {};
     notValidClasses.emailEmergencyCls = this.props.isValid('emailEmergency') ?

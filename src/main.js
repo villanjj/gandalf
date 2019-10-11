@@ -7,7 +7,7 @@ export default class StepZilla extends Component {
     super(props);
 
     this.state = {
-      compState: this.props.startAtStep,
+      currentStep: this.props.startAtStep,
       navState: this.getNavStates(this.props.startAtStep, this.props.steps.length)
     };
 
@@ -18,11 +18,11 @@ export default class StepZilla extends Component {
     // if user did not give a custom nextTextOnFinalActionStep, the nextButtonText becomes the default
     this.nextTextOnFinalActionStep = (this.props.nextTextOnFinalActionStep) ? this.props.nextTextOnFinalActionStep : this.props.nextButtonText;
 
-    this.applyValidationFlagsToSteps();
+    this.initializeValidationFlags();
   }
 
   // extend the "steps" array with flags to indicate if they have been validated
-  applyValidationFlagsToSteps() {
+  initializeValidationFlags() {
     this.props.steps.map((i, idx) => {
       if (this.props.dontValidate) {
         i.validated = true;
@@ -72,7 +72,7 @@ export default class StepZilla extends Component {
     // last step hide next btn, hide previous btn if supplied as props
     if (currentStep >= this.props.steps.length - 1) {
       showNextBtn = false;
-      showPreviousBtn = this.props.prevBtnOnLastStep === false ? false : true;
+      showPreviousBtn = this.props.prevBtnOnLastStep === undefined ? true : this.props.prevBtnOnLastStep;
     }
 
     return {
@@ -92,9 +92,8 @@ export default class StepZilla extends Component {
   // set the nav state
   setNavState(next) {
     this.setState({ navState: this.getNavStates(next, this.props.steps.length) });
-
     if (next < this.props.steps.length) {
-      this.setState({ compState: next });
+      this.setState({ currentStep: next });
     }
 
     this.checkNavState(next);
@@ -118,7 +117,7 @@ export default class StepZilla extends Component {
       this.setNavState(evt);
     } else { // the main navigation step ui is invoking a jump between steps
       // if stepsNavigation is turned off or user clicked on existing step again (on step 2 and clicked on 2 again) then ignore
-      if (!this.props.stepsNavigation || evt.target.value === this.state.compState) {
+      if (!this.props.stepsNavigation || evt.target.value === this.state.currentStep) {
         evt.preventDefault();
         evt.stopPropagation();
 
@@ -128,7 +127,7 @@ export default class StepZilla extends Component {
       // evt is a react event so we need to persist it as we deal with aync promises which nullifies these events (https://facebook.github.io/react/docs/events.html#event-pooling)
       evt.persist();
 
-      const movingBack = evt.target.value < this.state.compState; // are we trying to move back or front?
+      const movingBack = evt.target.value < this.state.currentStep; // are we trying to move back or front?
       let passThroughStepsNotValid = false; // if we are jumping forward, only allow that if inbetween steps are all validated. This flag informs the logic...
       let proceed = false; // flag on if we should move on
 
@@ -148,7 +147,7 @@ export default class StepZilla extends Component {
               // ... 'some' that to get a decision on if we should allow moving forward
               passThroughStepsNotValid = this.props.steps
                 .reduce((a, c, i) => {
-                  if (i >= this.state.compState && i < evt.target.value) {
+                  if (i >= this.state.currentStep && i < evt.target.value) {
                     a.push(c.validated);
                   }
                   return a;
@@ -169,7 +168,7 @@ export default class StepZilla extends Component {
           // this is like finally(), executes if error no no error
           if (proceed && !passThroughStepsNotValid) {
             if (evt.target.value === (this.props.steps.length - 1)
-              && this.state.compState === (this.props.steps.length - 1)) {
+              && this.state.currentStep === (this.props.steps.length - 1)) {
               this.setNavState(this.props.steps.length);
             } else {
               this.setNavState(evt.target.value);
@@ -193,9 +192,9 @@ export default class StepZilla extends Component {
         // validation was a success (promise or sync validation). In it was a Promise's resolve() then proceed will be undefined,
         // ... so make it true. Or else 'proceed' will carry the true/false value from sync validation
         this.updateStepValidationFlag(proceed);
-
+        
         if (proceed) {
-          this.setNavState(this.state.compState + 1);
+          this.setNavState(this.state.currentStep + 1);
         }
       })
       .catch((e) => {
@@ -214,14 +213,14 @@ export default class StepZilla extends Component {
 
   // move behind via previous button
   previous() {
-    if (this.state.compState > 0) {
-      this.setNavState(this.state.compState - 1);
+    if (this.state.currentStep > 0) {
+      this.setNavState(this.state.currentStep - 1);
     }
   }
 
   // update step's validation flag
   updateStepValidationFlag(val = true) {
-    this.props.steps[this.state.compState].validated = val; // note: if a step component returns 'underfined' then treat as "true".
+    this.props.steps[this.state.currentStep].validated = val; // note: if a step component returns 'underfined' then treat as "true".
   }
 
   // are we allowed to move forward? via the next button or via jumpToStep?
@@ -234,7 +233,7 @@ export default class StepZilla extends Component {
       if (skipValidationExecution) {
         // we are moving backwards in steps, in this case dont validate as it means the user is not commiting to "save"
         proceed = true;
-      } else if (this.isStepAtIndexHOCValidationBased(this.state.compState)) {
+      } else if (this.isStepAtIndexHOCValidationBased(this.state.currentStep)) {
         // the user is using a higer order component (HOC) for validation (e.g react-validation-mixin), this wraps the StepZilla steps as a HOC,
         // so use hocValidationAppliedTo to determine if this step needs the aync validation as per react-validation-mixin interface
         proceed = this.refs.activeComponent.refs.component.isValidated();
@@ -284,7 +283,7 @@ export default class StepZilla extends Component {
   // main render of stepzilla container
   render() {
     const { props } = this;
-    const { nextStepText, showNextBtn, showPreviousBtn } = this.getPrevNextBtnLayout(this.state.compState);
+    const { nextStepText, showNextBtn, showPreviousBtn } = this.getPrevNextBtnLayout(this.state.currentStep);
 
     // clone the step component dynamically and tag it as activeComponent so we can validate it on next. also bind the jumpToStep piping method
     const cloneExtensions = {
@@ -293,12 +292,12 @@ export default class StepZilla extends Component {
       }
     };
 
-    const componentPointer = this.props.steps[this.state.compState].component;
+    const componentPointer = this.props.steps[this.state.currentStep].component;
 
     // can only update refs if its a regular React component (not a pure component), so lets check that
     if (componentPointer instanceof Component
       || (componentPointer.type && componentPointer.type.prototype instanceof Component)) {
-      // unit test deteceted that instanceof Component can be in either of these locations so test both (not sure why this is the case)
+      // unit test detected that instanceof Component can be in either of these locations so test both (not sure why this is the case)
       cloneExtensions.ref = 'activeComponent';
     }
 
@@ -306,15 +305,16 @@ export default class StepZilla extends Component {
 
     return (
       <div className="multi-step" onKeyDown={(evt) => { this.handleKeyDown(evt); }}>
-          {
-              this.props.showSteps
-                ? <ol className="progtrckr">
-                    {this.renderSteps()}
-                </ol>
-                : <span></span>
-          }
+        {
+            this.props.showSteps
+              ? <ol className="progtrckr">
+                  {this.renderSteps()}
+              </ol>
+              : <span></span>
+        }
 
-          {compToRender}
+        {compToRender}
+
         <div style={this.props.showNavigation ? {} : this.hidden} className="footer-buttons">
           <button
             type="button"

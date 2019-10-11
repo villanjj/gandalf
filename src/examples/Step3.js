@@ -78,6 +78,7 @@ export default class Step3 extends Component {
   }
 
   render() {
+    console.log("step 3");
     // explicit class assigning based on validation
     let notValidClasses = {};
 
